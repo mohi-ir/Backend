@@ -34,6 +34,9 @@ public class Communicator implements SerialPortEventListener{
     private JTextField nodeIdField;
     private JTextField serverIdField;
     private JTextField netIdField;
+    private JTextField numberOfPacketsField;
+    private JTextField timeoutField;
+    private JTextField packetLengthField;
    
     public Communicator(SmartHomeUI win){
         this.window = win;
@@ -43,6 +46,9 @@ public class Communicator implements SerialPortEventListener{
         this.nodeIdField = window.getNodeId();
         this.serverIdField = window.getServerId();
         this.netIdField = window.getNetId();
+        this.numberOfPacketsField = window.getnNumberOfPacketsField();
+        this.timeoutField = window.getTimeoutField();
+        this.packetLengthField = window.getPacketLengthField();
     }
     
     private Enumeration ports = null;
@@ -68,18 +74,15 @@ public class Communicator implements SerialPortEventListener{
     String logText = "";
     
     static String delimiter ="\r";
-    //static String ackBegin = "ack:";
-   // static String ack ="";
-        
+           
     // application parameters
     final static String MESSAGE_CONFIG = "+Config";
     final static String MESSAGE_TEST_PACKET = "+TestPacket";
     
-    //List<String> ackBuffer = new ArrayList<String>();
     List<Integer> ackBuffer = new ArrayList<Integer>();
-    //Map<Integer, String> ackBuffer = new HashMap<Integer, String>();
-    //int index =0;
-    
+    static long TotalAckRecievingTime ;
+    static int numberOfRecievedAcks ;
+       
     private BufferedReader inputBuffer;
        
      
@@ -224,7 +227,8 @@ public class Communicator implements SerialPortEventListener{
                   String [] parsedPacket = parsePacket(inputLine);
                   
                   //if packet belonges to the same serverId and packet belongs to this node
-                  if(parsedPacket.length ==6 ){
+                  if(parsedPacket[6] == "T" ){
+                       
                     if (parsedPacket[1].equals(serverIdField.getText()) && parsedPacket[2].equals(nodeIdField.getText())){
                          readData.append(inputLine +"\n");
 
@@ -249,12 +253,13 @@ public class Communicator implements SerialPortEventListener{
     }
     
     public String [] parsePacket(String s){
-        String [] result = new String [6];
+        String [] result = new String [7];
+        result [6] = "F";
         String [] splitMessageId = s.split(":");
         
-        
-        
+               
         if(splitMessageId.length ==2){
+           
             
         //messageId
         result[0] = splitMessageId[0];
@@ -262,7 +267,7 @@ public class Communicator implements SerialPortEventListener{
         String [] splitWords = splitMessageId[1].split(",");
         
         if(splitWords.length ==5){
-        
+                    
           //serverId
             result[1] = splitWords[0];
 
@@ -277,6 +282,8 @@ public class Communicator implements SerialPortEventListener{
 
             //packetText
             result[5] = splitWords[4];
+            
+            result[6] = "T";
         }
         
         }
@@ -301,12 +308,15 @@ public class Communicator implements SerialPortEventListener{
     
     public void test1(String message){
         
-        for(int i=0;i<100;i++){
+        TotalAckRecievingTime =0L;
+        numberOfRecievedAcks =0;
+        
+        for(int i=0;i<Integer.parseInt(numberOfPacketsField.getText());i++){
             String s = message;
             s += i;
             s += ",";
             
-            for(int k=s.length();k<32;k++){
+            for(int k=s.length();k<Integer.parseInt(packetLengthField.getText())-3;k++){
                 s += "-";
             }
             
@@ -322,6 +332,10 @@ public class Communicator implements SerialPortEventListener{
           logField.append( "ack: " + 0  + "\n");
       }
     }
+     
+     logField.append("____________________________________"+"\n");
+     logField.append("Number of recieved Acks: " + String.valueOf(numberOfRecievedAcks) + "\n");
+     if(numberOfRecievedAcks >0)  logField.append("Average time of recieving Ack: " + String.valueOf(TotalAckRecievingTime/numberOfRecievedAcks));
 }
     
     //write data to serialPort
@@ -351,27 +365,29 @@ public class Communicator implements SerialPortEventListener{
        //thread.interrupt();             */
         
         
-                    long beginTime = System.currentTimeMillis(); 
-                  
-                    writeData(packet);                          
-                                     
-                    while(true){
-                        long endTime = System.currentTimeMillis();
-                        long dt = endTime - beginTime;
-                        
-                        if(!ackBuffer.isEmpty()){
-                            if(ackBuffer.contains(ack)){
+        long beginTime = System.currentTimeMillis(); 
 
-                                logField.append( "ack: " + ack + " , recieved in " + dt + "ms" + "\n");
-                                //ackBuffer.remove(ack);
-                                break;
-                            }
-                        }
-                        if(dt > 100){
-                            //logField.append( "Time-out 10 seconds" + "\n");
-                            break;
-                        }
-                    }
+        writeData(packet);                          
+
+        while(true){
+            long endTime = System.currentTimeMillis();
+            long dt = endTime - beginTime;
+
+            if(!ackBuffer.isEmpty()){
+                if(ackBuffer.contains(ack)){
+
+                    logField.append( "ack: " + ack + " , recieved in " + dt + "ms" + "\n");
+                    TotalAckRecievingTime +=dt;
+                    numberOfRecievedAcks ++;
+                    //ackBuffer.remove(ack);
+                    break;
+                }
+            }
+            if(dt > Long.parseLong(timeoutField.getText())){
+
+                break;
+            }
+        }
                 
    }
     
