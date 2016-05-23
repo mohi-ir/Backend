@@ -226,11 +226,13 @@ public class Communicator implements SerialPortEventListener{
                  
                   String [] parsedPacket = parsePacket(inputLine);
                   
+                   readData.append(inputLine +"\n");
+                  
                   //if packet belonges to the same serverId and packet belongs to this node
                   if(parsedPacket[6] == "T" ){
                        
                     if (parsedPacket[1].equals(serverIdField.getText()) && parsedPacket[2].equals(nodeIdField.getText())){
-                         readData.append(inputLine +"\n");
+                        
 
                      if(parsedPacket[0].equals("Test")){
 
